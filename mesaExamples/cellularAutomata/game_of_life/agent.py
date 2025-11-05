@@ -45,29 +45,43 @@ class Cell(FixedAgent):
         #     for neighbor in self.neighbors:
         #         print(neighbor.pos)
 
-        #Encontrar los 3 vecinos de arriba
+        #Encontrar los 3 vecinos de arriba de la celula - lista (objetos)
         upper_neighbors = [neighbor for neighbor in self.neighbors if neighbor.y > self.y]
+        #print(upper_neighbors)
+
         #Encontrar cuantos vecinos de arriba están vivos -> checa si el vecino esta vivo (bool) y 
         #cuenta los True para ver cuantos están vivos
-        alive_above = sum(neighbor.is_alive for neighbor in upper_neighbors)
+        #alive_above = sum(neighbor.is_alive for neighbor in upper_neighbors)
         #Encontrar los vecinos muertos
-        dead_above = len(upper_neighbors) - alive_above
+        #dead_above = len(upper_neighbors) - alive_above
 
-        # Get the neighbors and apply the rules on whether to be alive or dead
-        # at the next tick.
-        # iterar - como si se definiera una función de una suma completa, como si juntaras un if
-        #live_neighbors = sum(neighbor.is_alive for neighbor in self.neighbors)
-
-
+        #Tendría que separar en que posición esta cual true y false para tener el orden y cumplir con las condiciones
+        states = [1 if neighbor.is_alive else 0 for neighbor in upper_neighbors]
+        print(states)
+        alive_above = sum(states)
+        dead_above = len(states) - alive_above
         # Assume nextState is unchanged, unless changed below.
         self._next_state = self.state
 
-        if self.is_alive:
-            if live_neighbors < 2 or live_neighbors > 3:
-                self._next_state = self.DEAD
-        else:
-            if live_neighbors == 3:
-                self._next_state = self.ALIVE
+        #si los 3 de arriba estan vivos, yo muero
+        if alive_above == 3:
+            self._next_state = self.DEAD
+        #si los 3 de arriba estan muertos, yo vivo
+        elif dead_above == 3:
+            self._next_state = self.ALIVE
+        elif upper_neighbors == [1,1,0]:
+            self._next_state = self.ALIVE
+        elif upper_neighbors == [1,0,1]:
+            self._next_state = self.DEAD
+        elif upper_neighbors == [1,0,0]:
+            self._next_state = self.ALIVE
+        elif upper_neighbors == [0,1,1]:
+            self._next_state = self.ALIVE
+        elif upper_neighbors == [0,1,0]:
+            self._next_state = self.DEAD
+        elif upper_neighbors == [0,0,1]:
+            self._next_state = self.ALIVE
+
 
     def assume_state(self):
         """Set the state to the new computed state -- computed in step()."""
