@@ -46,7 +46,7 @@ class Cell(FixedAgent):
             return
 
         #self.neighbors es la lista de todas las celdas vecinas (las 8 alrededor)
-        #Si esta celda está viva, imprime las posiciones de todos sus vecinos (vivos o muertos)
+        # Si esta celda está viva, imprime las posiciones de todos sus vecinos (vivos o muertos)
         # if self.is_alive:
         #     for neighbor in self.neighbors:
         #         print("En celda:", self.pos, "vecino x:", neighbor.x, "vecino y:", neighbor.y)
@@ -55,7 +55,7 @@ class Cell(FixedAgent):
         neighborCenter = False
         neighborLeft = False
 
-        #Encontrar los 3 vecinos de arriba de la celda - lista (objetos)
+        # Encontrar los 3 vecinos de arriba de la celda
         for neighbor in self.neighbors:
             #Obtener solo los de arriba
             if neighbor.y == self.y + 1:
@@ -72,7 +72,7 @@ class Cell(FixedAgent):
         # Assume nextState is unchanged, unless changed below.
         self._next_state = self.state
 
-        #si los 3 de arriba estan vivos, yo muero
+        #Condiciones siguiendo la tabla
         if neighborRight and neighborCenter and neighborLeft:
             self._next_state = self.DEAD
         elif neighborRight and neighborCenter and not neighborLeft:
