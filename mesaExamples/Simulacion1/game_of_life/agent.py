@@ -39,49 +39,56 @@ class Cell(FixedAgent):
         because our current state may still be necessary for our neighbors
         to calculate their next state.
         """
+
+        #La primera línea debe mantenerse igual
+        if self.y == 49:
+            self._next_state = self.state
+            return
+
         #self.neighbors es la lista de todas las celdas vecinas (las 8 alrededor)
         #Si esta celda está viva, imprime las posiciones de todos sus vecinos (vivos o muertos)
         # if self.is_alive:
         #     for neighbor in self.neighbors:
-        #         print(neighbor.pos)
+        #         print("En celda:", self.pos, "vecino x:", neighbor.x, "vecino y:", neighbor.y)
 
-        #Encontrar los 3 vecinos de arriba de la celula - lista (objetos)
-        #upper_neighbors = [neighbor for neighbor in self.neighbors if neighbor.y > self.y + 1 ]
-        upper_neighbors = [ neighbor for neighbor in self.neighbors if neighbor.y == self.y + 1 and neighbor.x in [self.x - 1, self.x, self.x + 1]]
-        #print(upper_neighbors)
+        neighborRight = False
+        neighborCenter = False
+        neighborLeft = False
 
-        #Encontrar cuantos vecinos de arriba están vivos -> checa si el vecino esta vivo (bool) y 
-        #cuenta los True para ver cuantos están vivos
-        #alive_above = sum(neighbor.is_alive for neighbor in upper_neighbors)
-        #Encontrar los vecinos muertos
-        #dead_above = len(upper_neighbors) - alive_above
+        #Encontrar los 3 vecinos de arriba de la celda - lista (objetos)
+        for neighbor in self.neighbors:
+            #Obtener solo los de arriba
+            if neighbor.y == self.y + 1:
+                # Buscar el de la izquierda (x - 1)
+                if (neighbor.x == self.x - 1):
+                    neighborLeft = neighbor.is_alive
+                # Buscar el del centro (x igual)
+                elif (neighbor.x == self.x):
+                    neighborCenter = neighbor.is_alive
+                # Buscar el de la derecha (x + 1)
+                elif (neighbor.x == self.x + 1):
+                    neighborRight = neighbor.is_alive
 
-        #Tendría que separar en que posición esta cual true y false para tener el orden y cumplir con las condiciones
-        states = [1 if neighbor.is_alive else 0 for neighbor in upper_neighbors]
-        print(states)
-        alive_above = sum(states)
-        dead_above = len(states) - alive_above
         # Assume nextState is unchanged, unless changed below.
         self._next_state = self.state
 
         #si los 3 de arriba estan vivos, yo muero
-        if alive_above == 3:
+        if neighborRight and neighborCenter and neighborLeft:
             self._next_state = self.DEAD
-        #si los 3 de arriba estan muertos, yo vivo
-        elif dead_above == 3:
+        elif neighborRight and neighborCenter and not neighborLeft:
             self._next_state = self.ALIVE
-        elif states == [1,1,0]:
-            self._next_state = self.ALIVE
-        elif states == [1,0,1]:
+        elif neighborRight and not neighborCenter and neighborLeft:
             self._next_state = self.DEAD
-        elif states == [1,0,0]:
+        elif neighborRight and not neighborCenter and not neighborLeft:
             self._next_state = self.ALIVE
-        elif states == [0,1,1]:
+        elif not neighborRight and neighborCenter and neighborLeft:
             self._next_state = self.ALIVE
-        elif states == [0,1,0]:
+        elif not neighborRight and neighborCenter and not neighborLeft:
             self._next_state = self.DEAD
-        elif states == [0,0,1]:
+        elif not neighborRight and not neighborCenter and neighborLeft:
             self._next_state = self.ALIVE
+        elif not neighborRight and not neighborCenter and not neighborLeft:
+            self._next_state = self.DEAD
 
 
     def assume_state(self):
