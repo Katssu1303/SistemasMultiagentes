@@ -24,28 +24,21 @@ class ConwaysGameOfLife(Model):
 
         # Place a cell at each location, with some initialized to
         # ALIVE and some to DEAD.
+        # Recorre todas las celdas de la cuadrícula e inicia aleatoriamente ALIVE o DEAD
         for cell in self.grid.all_cells:
-            if cell.coordinate[1] == 49:
-                Cell(
-                    self, #referencia al mismo objeto que se esta creando
-                    cell,
-                    init_state=(
-                        Cell.ALIVE
-                        if self.random.random() < initial_fraction_alive
-                        else Cell.DEAD
-                    ),
-                )
-            else:
-                Cell(
-                    self,
-                    cell,
-                    init_state=(
-                        Cell.DEAD
-                    ),
-                )
+            Cell(
+                self, #referencia al mismo objeto que se esta creando
+                cell,
+                init_state=(
+                    # La celda estará viva si el número aleatorio es menor
+                    # que la fracción inicial de celdas vivas definida
+                    Cell.ALIVE
+                    if self.random.random() < initial_fraction_alive
+                    else Cell.DEAD
+                ),
+            )
 
-
-        #correr simulación
+        # correr simulación
         self.running = True
 
     def step(self):
