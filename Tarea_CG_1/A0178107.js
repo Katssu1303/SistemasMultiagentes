@@ -132,11 +132,11 @@ function drawScene(
   // Matriz compuesta: T * R * S
   // M = T(model) * T(pivot) * R * S * T(-pivot)
   let pinguinTransforms = M3.identity();
-  pinguinTransforms = M3.multiply(traMat, pinguinTransforms);
-  pinguinTransforms = M3.multiply(traPivot, pinguinTransforms);
-  pinguinTransforms = M3.multiply(rotMat, pinguinTransforms);
-  pinguinTransforms = M3.multiply(scaMat, pinguinTransforms);
   pinguinTransforms = M3.multiply(traNegPivot, pinguinTransforms);
+  pinguinTransforms = M3.multiply(scaMat, pinguinTransforms);
+  pinguinTransforms = M3.multiply(rotMat, pinguinTransforms);
+  pinguinTransforms = M3.multiply(traPivot, pinguinTransforms);
+  pinguinTransforms = M3.multiply(traMat, pinguinTransforms);
 
   let pivotTransforms = M3.translation(pivot);
 
