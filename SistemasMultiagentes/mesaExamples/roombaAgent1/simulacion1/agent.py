@@ -62,6 +62,7 @@ class RoombaAgent(CellAgent):
         """Increase battery while at charger."""
         cell = self.model.grid.get_cell_list_contents([self.pos])[0]
         if cell.state == "Charger":
+            # cargar lo minimo para recoger las basuras que viste 
             self.battery = min(100, self.battery + 5)
             if self.battery == 100:
                 self.state = "cleaning"
@@ -72,6 +73,8 @@ class RoombaAgent(CellAgent):
 
     def return_to_charger(self):
         """Move toward (1,1) to recharge."""
+
+        # tanto moverse como limpiar quita batería
         target = (1, 1)
 
         x, y = self.pos
@@ -133,3 +136,7 @@ class ObstacleAgent(FixedAgent):
 
     def step(self):
         pass
+
+    # definir random la ubicación de los obstaculos y que sean fijos
+
+    # usar dfs paera ir descartando y encontrar el optimo

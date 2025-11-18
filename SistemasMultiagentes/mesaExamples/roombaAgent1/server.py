@@ -1,6 +1,16 @@
-from mesa.visualization import SolaraViz, make_space_component, make_plot_component
+from simulacion1.model import RoombaModel
+
+from mesa.visualization import (
+    SolaraViz,
+    make_plot_component,
+    make_space_component,
+)
+
+from mesa.visualization.user_param import (
+    Slider,
+)
+
 from mesa.visualization.components import AgentPortrayalStyle
-from mesa.visualization.user_param import Slider
 
 from simulacion1.model import RoombaModel
 from  simulacion1.agent import RoomCell, RoombaAgent
@@ -61,7 +71,7 @@ lineplot_component = make_plot_component(
     post_process=post_process_lines,
 )
 
-
+model = RoombaModel()
 model_params = {
     "width": Slider("Room Width", 20, 5, 50, 1),
     "height": Slider("Room Height", 20, 5, 50, 1),
@@ -72,7 +82,7 @@ model_params = {
 
 
 page = SolaraViz(
-    RoombaModel,
+    model,
     components=[space_component, lineplot_component],
     model_params=model_params,
     name="Roomba Simulation",
