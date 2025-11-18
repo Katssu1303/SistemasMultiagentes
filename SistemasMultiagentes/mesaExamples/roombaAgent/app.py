@@ -1,5 +1,5 @@
-from random_agents.agent import RandomAgent, ObstacleAgent
-from random_agents.model import RandomModel
+from simulacion1.model import RoombaModel
+from  simulacion1.agent import RoomCell, RoombaAgent
 
 from mesa.visualization import (
     Slider,
@@ -18,9 +18,9 @@ def random_portrayal(agent):
         marker="o",
     )
 
-    if isinstance(agent, RandomAgent):
+    if isinstance(agent, RoombaAgent):
         portrayal.color = "red"
-    elif isinstance(agent, ObstacleAgent):
+    elif isinstance(agent, RoomCell):
         portrayal.color = "gray"
         portrayal.marker = "s"
         portrayal.size = 100
@@ -42,7 +42,7 @@ model_params = {
 }
 
 # Create the model using the initial parameters from the settings
-model = RandomModel(
+model = RoombaModel(
     num_agents=model_params["num_agents"].value,
     width=model_params["width"].value,
     height=model_params["height"].value,
