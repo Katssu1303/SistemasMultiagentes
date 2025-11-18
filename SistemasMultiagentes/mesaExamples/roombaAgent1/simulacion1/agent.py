@@ -6,8 +6,8 @@ class RoomCell(CellAgent):
     Estados:
         - "Dirty"
         - "Clean"
-        - "Obstacle"
         - "Charger"
+        - "Obstacle"
     """
 
     def __init__(self, unique_id, model, pos, state="Dirty"):
@@ -27,6 +27,7 @@ class RoombaAgent(CellAgent):
         - "returning"
         - "charging"
         - "idle"
+        - "communicating"
     """
 
     def __init__(self, unique_id, model, pos):
@@ -98,6 +99,8 @@ class RoombaAgent(CellAgent):
         """Clean if dirty, otherwise move randomly."""
         cell_contents = self.model.grid.get_cell_list_contents([self.pos])
         cell = cell_contents[0]  # RoomCell
+
+        # Separar funcion clean y regresando
 
         # Clean
         if cell.state == "Dirty":

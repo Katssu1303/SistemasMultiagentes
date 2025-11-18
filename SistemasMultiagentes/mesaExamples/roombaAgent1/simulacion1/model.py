@@ -32,7 +32,7 @@ class RoombaModel(mesa.Model):
         # Initialize Roomba at the charger
         self.roomba = RoombaAgent(999, self, pos=(1, 1))
         self.grid.place_agent(self.roomba, (1, 1))
-        self.schedule.add(self.roomba)
+        #self.schedule.add(self.roomba)
 
         self.running = True
         self.steps = 0
