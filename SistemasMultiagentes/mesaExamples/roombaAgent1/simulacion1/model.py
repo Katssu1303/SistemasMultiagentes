@@ -60,7 +60,7 @@ class RoombaModel(mesa.Model):
         for x in range(self.width):
             for y in range(self.height):
 
-                # Charger location
+                # Charger location - mover AQUI
                 if (x, y) == (1, 1):
                     cell = RoomCell(uid, self, (x, y), state="Charger")
                 else:
