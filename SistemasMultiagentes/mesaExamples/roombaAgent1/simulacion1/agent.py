@@ -31,8 +31,8 @@ class RoombaAgent(CellAgent):
         - "communicating"  -> hablando con otros agentes
     """
 
-    def __init__(self, unique_id, model, pos):
-        super().__init__(unique_id, model)
+    def __init__(self, model, pos):
+        super().__init__(model)
         self.pos = pos
         self.battery = 100
         self.state = "cleaning"

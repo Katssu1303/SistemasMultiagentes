@@ -1,43 +1,42 @@
 import mesa
-from mesa.space import MultiGrid
-#from mesa.time import BaseScheduler
+from mesa.discrete_space import OrthogonalMooreGrid
+from mesa.time import BaseScheduler
 
-from .agent import RoomCell, RoombaAgent
+from .agent import RoomCell, RoombaAgent, ObstacleAgent
 
 
 class RoombaModel(mesa.Model):
     """
-    Roomba Cleaning Environment Model.
+    Modelo del entorno de limpieza para una Roomba.
     """
 
     def __init__(self, width=20, height=20,
-                 dirt_prob=0.3, obstacle_prob=0.1,
-                 max_steps=500, seed=None):
+                 dirt_prob=0.3, obstacle_prob=0.1, seed=None):
 
         super().__init__(seed=seed)
 
         self.width = width
         self.height = height
-        self.max_steps = max_steps
 
-        # Grid with multiple agents per cell allowed
-        self.grid = MultiGrid(width, height, torus=False)
+        # Grid que permite 2 agentes por celda: RoomCell y Roomba
+        self.grid = OrthogonalMooreGrid((width, height), capacity=2, random=self.random)
 
-        # Scheduler — simple because we only have 1 Roomba for now
-        #self.schedule = BaseScheduler(self)
+        # Scheduler clásico de Mesa
+        self.schedule = BaseScheduler(self)
 
-        # Initialize room cells (dirty / clean / obstacle / charger)
+        # Inicializar celdas
         self._init_cells(dirt_prob, obstacle_prob)
 
-        # Initialize Roomba at the charger
-        self.roomba = RoombaAgent(999, self, pos=(1, 1))
+        # Crear la Roomba en el cargador
+        self.roomba = RoombaAgent(self, pos=(1, 1))
         self.grid.place_agent(self.roomba, (1, 1))
-        #self.schedule.add(self.roomba)
+        self.schedule.add(self.roomba)
 
         self.running = True
         self.steps = 0
+        self.max_steps = 1000  # límite de seguridad
 
-        # Data Collector
+        # Recolector de datos
         self.datacollector = mesa.DataCollector(
             {
                 "CleanPct": lambda m: m.percent_clean(),
@@ -51,48 +50,45 @@ class RoombaModel(mesa.Model):
 
     def _init_cells(self, dirt_prob, obstacle_prob):
         """
-        Initialize the room grid with:
-        - a fixed charger at (1,1)
-        - dirty & clean cells
-        - obstacles
+        Inicializa la grilla con:
+        - una celda cargador en (1,1)
+        - celdas sucias o limpias
+        - (por ahora) obstáculos como estado dentro de RoomCell
         """
-        uid = 0
+
         for x in range(self.width):
             for y in range(self.height):
 
-                # Charger location - mover AQUI
+                # Celda base
                 if (x, y) == (1, 1):
-                    cell = RoomCell(uid, self, (x, y), state="Charger")
+                    cell = RoomCell(self, (x, y), state="Charger")
                 else:
                     r = self.random.random()
                     if r < obstacle_prob:
-                        cell = RoomCell(uid, self, (x, y), state="Obstacle")
+                        cell = RoomCell(self, (x, y), state="Obstacle")
                     elif r < obstacle_prob + dirt_prob:
-                        cell = RoomCell(uid, self, (x, y), state="Dirty")
+                        cell = RoomCell(self, (x, y), state="Dirty")
                     else:
-                        cell = RoomCell(uid, self, (x, y), state="Clean")
+                        cell = RoomCell(self, (x, y), state="Clean")
 
                 self.grid.place_agent(cell, (x, y))
-                uid += 1
-
 
     def step(self):
-        """Advance the model by one step."""
+        """Avanza el modelo un paso."""
 
-        self.schedule.step()
+        self.schedule.step()          # Ejecuta step() de los agentes
         self.datacollector.collect(self)
         self.steps += 1
 
-        # stop conditions
+        # Condiciones de parada
         if self.steps >= self.max_steps:
             self.running = False
 
         if self.count_state("Dirty") == 0:
             self.running = False
 
-
     def count_state(self, state):
-        """Count room cells in a given condition."""
+        """Cuenta cuántas RoomCells están en un estado dado."""
         count = 0
         for cell in self.grid.agents:
             if isinstance(cell, RoomCell) and cell.state == state:
