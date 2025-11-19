@@ -1,3 +1,4 @@
+import mesa
 from mesa.discrete_space import CellAgent, FixedAgent
 import random
 
@@ -33,7 +34,7 @@ class RoombaAgent(CellAgent):
 
     def __init__(self, model, pos):
         super().__init__(model)
-        self.pos = pos
+        self.pos = pos.coordinate
         self.battery = 100
         self.state = "cleaning"
         self.moves = 0  # Contador de movimientos

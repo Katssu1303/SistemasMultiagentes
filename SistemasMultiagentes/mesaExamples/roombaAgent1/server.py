@@ -21,29 +21,27 @@ COLORS = {
     "Clean": "#FFFFFF",     # blanco
     "Obstacle": "#000000",  # negro
     "Charger": "#00FF00",   # verde
-    "Roomba": "#0000FF",    # azul
 }
 
 
 def roomba_portrayal(agent):
     if agent is None:
         return
+    
+    portrayal = AgentPortrayalStyle(
+        size=50,
+        marker="o",
+    )
 
-    # Room cells
-    if isinstance(agent, RoomCell):
-        return AgentPortrayalStyle(
-            color=COLORS[agent.state],
-            marker="+",   # marcador + para celdas
-            size=8,
-        )
-
-    # Roomba agent
     if isinstance(agent, RoombaAgent):
-        return AgentPortrayalStyle(
-            color=COLORS["Roomba"],
-            marker="+",
-            size=12,
-        )
+        portrayal.color = "#0000FF";
+    elif isinstance(agent, RoomCell):
+        portrayal.color=COLORS[agent.state],
+        portrayal.marker="s",
+        portrayal.size=50,
+    
+    return portrayal
+
 
 
 def post_process_space(ax):
@@ -63,23 +61,19 @@ space_component = make_space_component(
 )
 
 lineplot_component = make_plot_component(
-    {
-        "CleanPct": "#00AA00",
-        "Battery": "#0000FF",
-        "Moves": "#AA0000",
-    },
+    COLORS,
     post_process=post_process_lines,
 )
 
-model = RoombaModel()
 model_params = {
-    "width": Slider("Room Width", 20, 5, 50, 1),
-    "height": Slider("Room Height", 20, 5, 50, 1),
+    "width": 200,
+    "height": 200,
     "dirt_prob": Slider("Dirt Probability", 0.3, 0.0, 1.0, 0.05),
     "obstacle_prob": Slider("Obstacle Probability", 0.1, 0.0, 0.5, 0.05),
     "max_steps": Slider("Max Steps", 500, 50, 2000, 50),
 }
 
+model = RoombaModel()
 
 page = SolaraViz(
     model,
