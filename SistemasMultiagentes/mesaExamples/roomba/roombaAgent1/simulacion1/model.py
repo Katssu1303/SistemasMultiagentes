@@ -51,10 +51,10 @@ class RoombaModel(Model):
         # Recolector de datos
         self.datacollector = mesa.DataCollector(
             {
-                "CleanPct": lambda m: m.percent_clean(),
-                "DirtyCells": lambda m: m.count_state("Dirty"),
-                "Battery": lambda m: m.roomba.battery,
-                "Moves": lambda m: m.roomba.moves,
+                #"Clean": lambda m: self.percent_clean(),
+                "Dirty": lambda m: self.count_type(m, "Dirty"),
+                "Battery": lambda m: self.roomba.battery,
+                "Moves": lambda m: self.roomba.moves,
             }
         )
 
@@ -71,15 +71,15 @@ class RoombaModel(Model):
         for cell in self.grid.all_cells:
             pos = cell.coordinate
             if pos == (1, 1):
-                agent = RoomCell(self, state="Charger")
-                self.grid.place_agent(agent, pos)
+                agent = RoomCell(self, cell=cell, state="Charger")
+                #self.grid.place_agent(agent, pos)
             else:
                 if self.random.random() < dirt_prob:
-                    agent = RoomCell(self, state="Dirty")
+                    agent = RoomCell(self, cell=cell, state="Dirty")
                 else:
-                    agent = RoomCell(self, state="Clean")
-
-                self.grid.place_agent(agent, pos)
+                    agent = RoomCell(self, cell=cell, state="Clean")
+                agent.cell=cell
+                #self.grid.place_agent(agent, pos)
 
     def step(self):
         """Avanza el modelo un paso."""
@@ -93,12 +93,11 @@ class RoombaModel(Model):
             self.running = False
 
     @staticmethod
-    def count_type(model, state):
+    def count_type(model, cell_state):
         """Cuenta cuántas RoomCells están en un estado dado."""
-        return len(model.agents.select(lambda x: x.condition == state))
+        return len(model.agents.select(lambda x: x.state == cell_state))
 
-    @staticmethod
     def percent_clean(self):
         total = self.width * self.height
-        dirty = self.count_state("Dirty")
+        dirty = self.count_type("Dirty")
         return (total - dirty) / total

@@ -12,9 +12,10 @@ class RoomCell(CellAgent):
         - "Charger" -> estación de carga
     """
 
-    def __init__(self, model, pos, state="Dirty"):
+    def __init__(self, model, cell, state="Dirty"):
         super().__init__(model)
-        self.pos = pos
+        cell = cell
+        self.pos = cell.coordinate
         self.state = state
 
     def step(self):
@@ -32,9 +33,10 @@ class RoombaAgent(CellAgent):
         - "communicating"  -> hablando con otros agentes
     """
 
-    def __init__(self, model, pos):
+    def __init__(self, model, cell):
         super().__init__(model)
-        self.pos = pos.coordinate
+        cell = cell
+        self.pos = cell.coordinate
         self.battery = 100
         self.state = "cleaning"
         self.moves = 0  # Contador de movimientos
