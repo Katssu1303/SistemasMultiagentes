@@ -10,12 +10,12 @@ class RoomCell(CellAgent):
         - "Dirty"   -> sucia, debe limpiarse
         - "Clean"   -> limpia
         - "Charger" -> estación de carga
+        - "Obstacle" -> no se puede pasar
     """
 
-    def __init__(self, model, cell, state="Dirty"):
+    def __init__(self, model, cell, state: str="Dirty"):
         super().__init__(model)
         cell = cell
-        self.pos = cell.coordinate
         self.state = state
 
     def step(self):
@@ -33,17 +33,46 @@ class RoombaAgent(CellAgent):
         - "communicating"  -> hablando con otros agentes
     """
 
-    def __init__(self, model, cell):
+    def __init__(self,
+        model,
+        cell=None,
+        battery_max: int = 100,):
         super().__init__(model)
         cell = cell
-        self.pos = cell.coordinate
-        self.battery = 100
+        self.battery_max = battery_max
+        self.battery = battery_max
         self.state = "cleaning"
         self.moves = 0  # Contador de movimientos
+        self.cleaned_cells = 0
         self.known_obstacles = set()
+        self.charger = cell
+    
+    def _consume_battery(self, amount: int = 1):
+        if self.battery <= 0:
+            self.battery = 0
+            self.state = "dead"
+        else:
+            self.battery = max(0, self.battery - amount)
+            if self.battery == 0:
+                self.state = "dead"
+
+    def get_floor_here(self) -> RoomCell | None:
+        """Return the FloorCell in the current cell."""
+        for obj in self.cell.agents:
+            if isinstance(obj, RoomCell):
+                return obj
+        return None
+    def is_obstacle_cell(self, candidate_cell) -> bool:
+        for obj in candidate_cell.agents:
+            if isinstance(obj, RoomCell) and obj.state == "Obstacle":
+                return True
+        return False
+    
 
     def step(self):
         """Lógica principal de decisión del agente."""
+        if self.state == "dead":
+            return
         
         if self.state == "charging":
             self.charge_battery()
@@ -69,20 +98,24 @@ class RoombaAgent(CellAgent):
         La Roomba puede decidir aleatoriamente cargar más
         incluso si ya tiene el mínimo necesario para salir.
         """
-        cell = self.model.grid.get_cell_list_contents([self.pos])[0]
+        cell = self.get_floor_here()
+        if cell is None:
+            # Should not happen; be defensive
+            self.state = "returning"
+            return
 
         # Verificar que está realmente sobre el cargador
         if cell.state == "Charger":
             # Incremento de carga
-            self.battery = min(100, self.battery + 5)
+            self.battery = min(self.battery_max, self.battery + 5)
 
-            # Probabilidad de seguir cargando aunque ya esté arriba de 50
-            prob_continuar_cargando = 0.4  # 40%
-
-            # Condición para regresar a limpiar
-            if self.battery >= 50:
-                if random.random() > prob_continuar_cargando:
-                    self.state = "cleaning"
+           # When battery is reasonably high, go back to cleaning
+            # if self.battery >= 50:
+            #     # Small probability of staying charging extra time
+            #     if self.random.random() < 0.4:
+                    # keep charging
+                #     return
+                # self.state = "cleaning"
 
         else:
             # Si no está sobre el cargador, forzar retorno
@@ -95,8 +128,6 @@ class RoombaAgent(CellAgent):
         Por ahora el cargador está en (1,1), pero eventualmente se usaran 
         todas las posiciones de las estaciones.
         """
-
-        target = (1, 1)  # temporal: más adelante será dinámico
 
         # Calcular ruta
         path = self.bfs_shortest_path(self.pos, target)
