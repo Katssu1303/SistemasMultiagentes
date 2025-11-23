@@ -142,9 +142,9 @@ class RoombaAgent(CellAgent):
 
         for cell in disp_cells:
             dirty = any(
-    isinstance(obj, FloorCell) and obj.state == "Dirty"
-    for obj in cell.agents
-)
+                isinstance(obj, FloorCell) and obj.state == "Dirty"
+                for obj in cell.agents
+            )
 
             unknown = (cell not in self.visited_cells and cell not in self.visited_cells_sharing)
 
@@ -239,14 +239,8 @@ class RoombaAgent(CellAgent):
         while cola_rutas:
             my_cell, way = cola_rutas.popleft()
 
-            # Checar si esta celda es una estación
-            floor_here = None
-            for obj in my_cell.agents:
-                if isinstance(obj, FloorCell):
-                    floor_here = obj
-                    break
-
-            if floor_here and floor_here.state == "Charger":
+            # Checar si esta celda es una estación CONOCIDA
+            if my_cell in self.charging_stations:
                 return way
 
             # Explorar vecinos
@@ -283,14 +277,17 @@ class RoombaAgent(CellAgent):
         
         # Calcular camino si no hay uno
         if self.way is None:
-            safe_cells = self.cell.neighborhood.select(
-                lambda c: not self.is_obstacle_cell(c)
-            )
-            if safe_cells:
-                self.cell = self.random.choice(safe_cells)
-                self.moves += 1
-                #self.consume_battery()
-            return
+            self.way = self.bfs_shortest_path()
+            if self.way is None:
+                # No se encontró camino, moverse aleatoriamente
+                safe_cells = self.cell.neighborhood.select(
+                    lambda c: not self.is_obstacle_cell(c)
+                )
+                if safe_cells:
+                    self.cell = self.random.choice(safe_cells)
+                    self.moves += 1
+                    self.consume_battery()
+                return
         
         # Seguir el camino BFS paso a paso
         if self.way and len(self.way) > 0:
@@ -321,7 +318,6 @@ class RoombaAgent(CellAgent):
         # 2. ESTADO: RETURNING
         if self.state == "returning":
             self.return_to_charger()
-            self.consume_battery()
             return
 
         # 3. ESTADO: CLEANING
