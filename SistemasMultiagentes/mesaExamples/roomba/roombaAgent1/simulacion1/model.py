@@ -1,103 +1,147 @@
 import mesa
 from mesa import Model
+from mesa.datacollection import DataCollector
 from mesa.discrete_space import OrthogonalMooreGrid
-#from mesa.time import BaseScheduler
 
-from .agent import RoomCell, RoombaAgent, ObstacleAgent
+from .agents import FloorCell, RoombaAgent
 
 
 class RoombaModel(Model):
     """
-    Modelo del entorno de limpieza para una Roomba.
+    Cleaning environment for one or multiple Roombas
     """
 
-    def __init__(self, width=8, height=8,
-                 dirt_prob=0.5, obstacle_prob=0.2, seed=None, num_agents=1):
+    def __init__(
+        self,
+        width=20,
+        height=20,
+        dirt_prob=0.3,
+        obstacle_prob=0.1,
+        num_agents=1,
+        seed=42,
+        steps = 0
 
+    ):
         super().__init__(seed=seed)
-        self.seed = seed
+
         self.width = width
         self.height = height
+        self.dirt_prob = dirt_prob
+        self.obstacle_prob = obstacle_prob
         self.num_agents = num_agents
-        self.grid = OrthogonalMooreGrid((width, height), torus=False)
 
-        # Inicializar celdas sucias
-        self.create_cells(dirt_prob)
+        # Grid (Mesa >= 3.0 usa 2 argumentos)
+        self.grid = OrthogonalMooreGrid(width, height)
 
-        # Inicializar obstaculos de manera random
-        all_cells = list(self.grid)
-        num_obstacles = int(len(all_cells) * obstacle_prob)
-        # Seleccionar celdas aleatorias sin repetición
-        obstacle_cells = self.random.sample(all_cells, num_obstacles)
-        # Crear obstáculos
-        for cell in obstacle_cells:
-            ObstacleAgent(self, cell=cell)
+        # Program the scheduler
+        self.schedule = mesa.time.RandomActivation(self)
 
-        # Crear los Roomba
-        p = self.grid[1, 1]
-        RoombaAgent.create_agents(
-            self,
-            self.num_agents,
-            cell=p
-            # De la lista de todas las celdas vacías de la grilla selecciona una celda aleatoria para cada agente
-            #cell=self.random.choices(self.grid.empties.cells, k=self.num_agents)
-        )
+        # Crear celdas del piso
+        self.create_floor_cells()
 
+        # Crear roombas y estación de carga
+        self.create_roombas_and_chargers()
 
-        self.running = True
-        self.steps = 0
-        self.max_steps = 1000  # límite de seguridad
-
-        # Recolector de datos
+        # DataCollector
         self.datacollector = mesa.DataCollector(
-            {
-                #"Clean": lambda m: self.percent_clean(),
-                "Dirty": lambda m: self.count_type(m, "Dirty"),
-                "Battery": lambda m: self.roomba.battery,
-                "Moves": lambda m: self.roomba.moves,
+            model_reporters={
+                "CleanPct": lambda m: self.percent_clean(),
+                "DirtyCells": lambda m: self.count_cells_state("Dirty"),
+                "CleanCells": lambda m: self.count_cells_state("Clean"),
+                "ObstacleCells": lambda m: self.count_cells_state("Obstacle"),
+                "AvgBattery": lambda m: self.average_battery(),
+                "TotalMoves": lambda m: self.total_moves(),
             }
         )
 
         self.datacollector.collect(self)
 
-    def create_cells(self, dirt_prob):
-        """
-        Inicializa la grilla con:
-        - una celda cargador en (1,1)
-        - celdas sucias o limpias
-        - (por ahora) obstáculos como estado dentro de RoomCell
-        """
-        # Recorrer las celdas del grid, una por una
-        for cell in self.grid.all_cells:
-            pos = cell.coordinate
-            if pos == (1, 1):
-                agent = RoomCell(self, cell=cell, state="Charger")
-                #self.grid.place_agent(agent, pos)
-            else:
-                if self.random.random() < dirt_prob:
-                    agent = RoomCell(self, cell=cell, state="Dirty")
+    # Crear piso: Dirty, Clean, Obstacle
+    def create_floor_cells(self):
+        for x in range(self.width):
+            for y in range(self.height):
+
+                # decidir obstáculo
+                if self.random.random() < self.obstacle_prob:
+                    state = "Obstacle"
                 else:
-                    agent = RoomCell(self, cell=cell, state="Clean")
-                agent.cell=cell
-                #self.grid.place_agent(agent, pos)
+                    # decidir suciedad
+                    state = "Dirty" if self.random.random() < self.dirt_prob else "Clean"
 
-    def step(self):
-        """Avanza el modelo un paso."""
-        # Mezcla aleatoriamente el orden de los agentes y llama método "step" de cada agente
-        self.agents.shuffle_do("step") 
+                cell = (x, y)
+                floor = FloorCell(self, cell=cell, state=state)
 
-        self.datacollector.collect(self)
+                # colocar en grid
+                self.grid.place_agent(floor, (x, y))
 
-        # Si no queda ningún agente con condición “Dirty”, entonces la simulación se detiene
-        if self.count_type("Dirty") == 0:
-            self.running = False
+                # activar en scheduler si tiene step()
+                self.schedule.add(floor)
 
-    @staticmethod
-    def count_type(model, cell_state):
-        """Cuenta cuántas RoomCells están en un estado dado."""
-        return len(model.agents.select(lambda x: x.state == cell_state))
+
+    # Crear roombas y estaciones de carga
+    def create_roombas_and_chargers(self):
+        # Seleccionar una celda aleatoria no obstáculo para la base
+        free_cells = [
+            (x, y) for x in range(self.width)
+            for y in range(self.height)
+            if not self.grid_contains_obstacle((x, y))
+        ]
+
+        if len(free_cells) == 0:
+            raise ValueError("No hay celdas libres para colocar estaciones de carga.")
+
+        # Elegir estación de carga principal
+        charger_pos = self.random.choice(free_cells)
+
+        # Cambiar la celda a Charger
+        for agent in self.grid.get_cell_list_contents([charger_pos]):
+            if isinstance(agent, FloorCell):
+                agent.state = "Charger"
+
+        # Crear roombas encima del cargador
+        for _ in range(self.num_agents):
+            roomba = RoombaAgent(self, cell=charger_pos)
+            self.grid.place_agent(roomba, charger_pos)
+            self.schedule.add(roomba)
+
+    def grid_contains_obstacle(self, pos):
+        """Bool -> devuelve True si la celda contiene un piso con estado obstacle."""
+        x, y = pos
+        contents = self.grid.get_cell_list_contents([pos])
+
+        for agent in contents:
+            if isinstance(agent, FloorCell) and agent.state == "Obstacle":
+                return True
+
+        return False
+        
+    # Métricas
+    def count_cells_state(self, state):
+        count = 0
+        for x in range(self.width):
+            for y in range(self.height):
+                for obj in self.grid.get_cell_list_contents([(x, y)]):
+                    if isinstance(obj, FloorCell) and obj.state == state:
+                        count += 1
+        return count
 
     def percent_clean(self):
         total = self.width * self.height
-        dirty = self.count_type("Dirty")
-        return (total - dirty) / total
+        clean = self.count_cells_state("Clean")
+        return clean / total if total > 0 else 0
+
+    def average_battery(self):
+        roombas = [a for a in self.schedule.agents if isinstance(a, RoombaAgent)]
+        if not roombas:
+            return 0
+        return sum(a.battery for a in roombas) / len(roombas)
+
+    def total_moves(self):
+        roombas = [a for a in self.schedule.agents if isinstance(a, RoombaAgent)]
+        return sum(a.moves for a in roombas)
+
+    def step(self):
+        self.schedule.step()
+        self.datacollector.collect(self)
+        self.steps += 1 
+

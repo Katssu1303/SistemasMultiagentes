@@ -1,47 +1,43 @@
-from simulacion1.model import RoombaModel
-
 from mesa.visualization import (
     SolaraViz,
-    make_plot_component,
     make_space_component,
+    make_plot_component,
 )
-
-from mesa.visualization.user_param import (
-    Slider,
-)
-
 from mesa.visualization.components import AgentPortrayalStyle
+from mesa.visualization.user_param import Slider
 
 from simulacion1.model import RoombaModel
-from  simulacion1.agent import RoomCell, RoombaAgent
+from simulacion1.agents import FloorCell, RoombaAgent
 
 
+# Portrayal
 COLORS = {
-    "Dirty": "#AA7700",     # café
-    "Clean": "#FFFFFF",     # blanco
-    "Obstacle": "#000000",  # negro
-    "Charger": "#00FF00",   # verde
+    "Dirty": "#AA7700",
+    "Clean": "#FFFFFF",
+    "Obstacle": "#000000",
+    "Charger": "#00FF00",
 }
-
 
 def roomba_portrayal(agent):
     if agent is None:
-        return
-    
-    portrayal = AgentPortrayalStyle(
-        size=50,
-        marker="o",
-    )
+        return None
 
     if isinstance(agent, RoombaAgent):
-        portrayal.color = "#0000FF";
-    elif isinstance(agent, RoomCell):
-        portrayal.color=COLORS[agent.state],
-        portrayal.marker="s",
-        portrayal.size=50,
-    
-    return portrayal
+        return AgentPortrayalStyle(
+            color="#FF00FF",
+            marker="o",
+            size=80,
+        )
 
+    if isinstance(agent, FloorCell):
+        color = COLORS.get(agent.state, "#CCCCCC")
+        return AgentPortrayalStyle(
+            color=color,
+            marker="s",
+            size=80,
+        )
+
+    return AgentPortrayalStyle()
 
 
 def post_process_space(ax):
@@ -50,34 +46,39 @@ def post_process_space(ax):
     ax.set_yticks([])
 
 
-def post_process_lines(ax):
-    ax.legend(loc="center left", bbox_to_anchor=(1, 0.9))
+def post_process_plot(ax):
+    ax.set_xlabel("Step")
+    ax.set_ylabel("Value")
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
 
+# Space component
 space_component = make_space_component(
-    roomba_portrayal,
-    draw_grid=False,
+    agent_portrayal=roomba_portrayal,
     post_process=post_process_space,
 )
 
-lineplot_component = make_plot_component(
+# Plot component
+lineplot_component, _ = make_plot_component(
     COLORS,
-    post_process=post_process_lines,
+    post_process=post_process_plot,
 )
 
+# Parámetros del modelo
+#model = RoombaModel()
 model_params = {
-    "width": 200,
-    "height": 200,
-    "dirt_prob": Slider("Dirt Probability", 0.3, 0.0, 1.0, 0.05),
-    "obstacle_prob": Slider("Obstacle Probability", 0.1, 0.0, 0.5, 0.05),
-    "max_steps": Slider("Max Steps", 500, 50, 2000, 50),
+    "width":        Slider("Width", value=20, min=5, max=50, step=1, dtype=int),
+    "height":       Slider("Height", value=20, min=5, max=50, step=1, dtype=int),
+    "dirt_prob":    Slider("Dirt probability", value=0.3, min=0.0, max=1.0, step=0.05),
+    "obstacle_prob": Slider("Obstacle probability", value=0.1, min=0.0, max=0.5, step=0.05),
+    "num_agents":   Slider("Number of agents", value=1, min=1, max=10, step=1, dtype=int),
 }
 
-model = RoombaModel()
 
+# Solara page
 page = SolaraViz(
-    model,
+    RoombaModel, 
     components=[space_component, lineplot_component],
     model_params=model_params,
-    name="Roomba Simulation",
+    name="Roomba Simulation 1",
 )

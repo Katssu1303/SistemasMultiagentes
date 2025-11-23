@@ -1,53 +1,66 @@
-import mesa
 from mesa.discrete_space import CellAgent, FixedAgent
-import random
+from collections import deque
 
-
-class RoomCell(CellAgent):
+class FloorCell(FixedAgent):
     """
-    Celda del cuarto.
-    Estados posibles:
-        - "Dirty"   -> sucia, debe limpiarse
-        - "Clean"   -> limpia
-        - "Charger" -> estación de carga
-        - "Obstacle" -> no se puede pasar
+    Static cell of the room.
+
+    state:
+        - "Dirty"
+        - "Clean"
+        - "Charger"
+        - "Obstacle"
     """
 
-    def __init__(self, model, cell, state: str="Dirty"):
+    def __init__(self, model, cell, state: str = "Dirty") -> None:
         super().__init__(model)
-        cell = cell
+        self.cell = cell
         self.state = state
 
-    def step(self):
+    def step(self) -> None:
         pass
 
 
 class RoombaAgent(CellAgent):
     """
-    Agente Roomba encargado de limpiar.
-    Estados posibles:
-        - "cleaning"       -> limpiando
-        - "returning"      -> regresando al cargador
-        - "charging"       -> cargando batería
-        - "idle"           -> sin hacer nada
-        - "communicating"  -> hablando con otros agentes
+    Cleaning agent.
+
+    state:
+        - "cleaning"
+        - "returning"
+        - "charging"
+        - "idle"
+        - "dead" (battery 0)
+        - "comunicating"
     """
 
-    def __init__(self,
+    def __init__(
+        self,
         model,
-        cell=None,
-        battery_max: int = 100,):
+        cell,
+        battery_max = 100,
+    ):
         super().__init__(model)
-        cell = cell
+        self.cell = cell
         self.battery_max = battery_max
         self.battery = battery_max
         self.state = "cleaning"
-        self.moves = 0  # Contador de movimientos
+        self.moves = 0
         self.cleaned_cells = 0
-        self.known_obstacles = set()
-        self.charger = cell
-    
-    def _consume_battery(self, amount: int = 1):
+
+        # Posición inicial - estación de carga
+        self.home_cell = cell
+        # Estaciones de carga
+        self.charging_stations = [cell]
+        # Celdas visitadas
+        self.visited_cells = set()
+        # Guardar camino
+        self.way = None
+        # Guardar celdas visitadas para compartir
+        self.visited_cells_sharing = set()
+
+
+    def consume_battery(self, amount: int = 1) -> None:
         if self.battery <= 0:
             self.battery = 0
             self.state = "dead"
@@ -56,199 +69,281 @@ class RoombaAgent(CellAgent):
             if self.battery == 0:
                 self.state = "dead"
 
-    def get_floor_here(self) -> RoomCell | None:
+    def get_floor_here(self) -> FloorCell | None:
         """Return the FloorCell in the current cell."""
         for obj in self.cell.agents:
-            if isinstance(obj, RoomCell):
+            if isinstance(obj, FloorCell):
                 return obj
         return None
+
+    # Detectar si hay obstaculos
     def is_obstacle_cell(self, candidate_cell) -> bool:
         for obj in candidate_cell.agents:
-            if isinstance(obj, RoomCell) and obj.state == "Obstacle":
+            if isinstance(obj, FloorCell) and obj.state == "Obstacle":
                 return True
         return False
     
-
-    def step(self):
-        """Lógica principal de decisión del agente."""
-        if self.state == "dead":
-            return
-        
-        if self.state == "charging":
-            self.charge_battery()
-            return
-
-        # Si la batería es baja deve volver a la estación
-        # Decidir cuánta batería mínima necesita
-        if self.battery <= 10 and self.state != "returning":
-            self.state = "returning"
-
-        if self.state == "returning":
-            self.return_to_charger()
-            return
-
-        # limpiar o moverse
-        if self.state == "cleaning":
-            self.clean_or_move()
-
-    # Función de carga
-    def charge_battery(self):
-        """
-        Incrementa la batería mientras está en la estación.
-        La Roomba puede decidir aleatoriamente cargar más
-        incluso si ya tiene el mínimo necesario para salir.
-        """
-        cell = self.get_floor_here()
-        if cell is None:
-            # Should not happen; be defensive
-            self.state = "returning"
-            return
-
-        # Verificar que está realmente sobre el cargador
-        if cell.state == "Charger":
-            # Incremento de carga
-            self.battery = min(self.battery_max, self.battery + 5)
-
-           # When battery is reasonably high, go back to cleaning
-            # if self.battery >= 50:
-            #     # Small probability of staying charging extra time
-            #     if self.random.random() < 0.4:
-                    # keep charging
-                #     return
-                # self.state = "cleaning"
-
-        else:
-            # Si no está sobre el cargador, forzar retorno
-            self.state = "returning"
-
-    # Función para regresar al cargador
-    def return_to_charger(self):
-        """
-        Regresa al cargador usando BFS para encontrar el camino óptimo.
-        Por ahora el cargador está en (1,1), pero eventualmente se usaran 
-        todas las posiciones de las estaciones.
-        """
-
-        # Calcular ruta
-        path = self.bfs_shortest_path(self.pos, target)
-
-        if not path or len(path) < 2:
-            return  # No hay camino o ya está encima del cargador
-
-        next_step = path[1]  # El primer paso REAL (path[0] = pos actual)
-
-        # Mover al siguiente paso
-        if self.model.grid.is_cell_empty(next_step):
-            self.model.grid.move_agent(self, next_step)
-            self.pos = next_step
-            self.moves += 1
-            self.battery -= 1
-
-        # Si llegó al cargador
-        if self.pos == target:
-            self.state = "charging"
     
-    # Función para encontrar el camino más corto
-    def bfs_shortest_path(self, start, goal):
-        # cola de doble extremo -> agregar al final y sacar del inicio para FIFO (First In, First Out)
-        # metes rutas nuevas al final y sacas la ruta más antigua al principio
-        from collections import deque
-
-        # cola donde se guardan las rutas
-        cola_rutas = deque([[start]])
-        # conjunto de posiciones que ya fueron exploradas por el BFS ()
-        visited = set([start])
-
-        # mientras haya rutas pendientes en la cola, seguir explorando.
-        while cola_rutas:
-            path = cola_rutas.popleft()
-            x, y = path[-1]
-
-            if (x, y) == goal:
-                return path
-
-            neighbors = self.model.grid.get_neighborhood(
-                (x, y), moore=True, include_center=False
-            )
-
-            for nx, ny in neighbors:
-
-                # 1) Si es un obstáculo conocido -> evitar
-                if (nx, ny) in self.known_obstacles:
-                    continue
-
-                # 2) Si ya visitamos -> ignorar
-                if (nx, ny) in visited:
-                    continue
-
-                # 3) Si está vacío -> puedes caminar
-                if self.model.grid.is_cell_empty((nx, ny)):
-                    visited.add((nx, ny))
-                    cola_rutas.append(path + [(nx, ny)])
-                    continue
-
-                # 4) Si es la meta -> permite entrar a esa celda
-                if (nx, ny) == goal:
-                    visited.add((nx, ny))
-                    cola_rutas.append(path + [(nx, ny)])
-                    continue
-
-                # 5) Si es un obstáculo no detectado, lo detectas (guardas) ahora
-                cell_contents = self.model.grid.get_cell_list_contents([(nx, ny)])
-                for obj in cell_contents:
-                    if isinstance(obj, ObstacleAgent):
-                        # lo guardamos en memoria
-                        self.known_obstacles.add((nx, ny))
-                        continue
-                        #break
-        return None
-
-    # Función elegir limpiar o moverse
     def clean_or_move(self):
-        """
-        Evalúa si la celda actual está sucia.
-        Si está sucia: limpia.
-        Si no: se mueve.
-        """
-        cell = self.model.grid.get_cell_list_contents([self.pos])[0]
+        floor = self.get_floor_here()
+        if floor is None:
+            self.move()
+            return
 
-        if cell.state == "Dirty":
+        if floor.state == "Dirty":
             self.clean()
         else:
             self.move()
 
-    # Función para limpiar
     def clean(self):
-        """Limpia la celda actual si está sucia."""
-        cell = self.model.grid.get_cell_list_contents([self.pos])[0]
-        if cell.state == "Dirty":
-            cell.state = "Clean"
-            self.battery -= 1
+        floor = self.get_floor_here()
+        if floor is not None and floor.state == "Dirty":
+            floor.state = "Clean"
+            self.cleaned_cells += 1
+            self.consume_battery()
 
-   # Función para moverse
     def move(self):
-        """Movimiento aleatorio a una celda libre disponible."""
-        possible_steps = self.model.grid.get_neighborhood(
-            self.pos, moore=True, include_center=False
+        """
+        Move randomly to a neighbor cell that is not an obstacle.
+        """
+        # Guardar en ambas listas
+        self.visited_cells.add(self.cell)
+        self.visited_cells_sharing.add(self.cell)
+
+        # Validar si hay una FloorCell con estado "Obstacle" - si hay obstaculos (bool)
+        safe_cells = self.cell.neighborhood.select(
+            lambda c: not self.is_obstacle_cell(c)
         )
 
-        free_spaces = [p for p in possible_steps if self.model.grid.is_cell_empty(p)]
+        if len(safe_cells) == 0:
+            # Si no hay ninguna celda segura alrededor (todas son obstáculos) -> el agente no puede moverse.
+            self.consume_battery()
+            return
 
-        if free_spaces:
-            new_pos = self.random.choice(free_spaces)
-            self.model.grid.move_agent(self, new_pos)
-            self.pos = new_pos
+        # Elegir celdas en orden para que cumpla el objetivo de limpiar en el menor tiempo
+        choose = self.choose_cells(safe_cells)
+
+        if choose:
+            target = self.random.choice(choose)
+            self.cell = target
             self.moves += 1
-            self.battery -= 1
+            self.consume_battery()
+
+    def choose_cells(self, disp_cells):
+        """
+        Choose the cell depending is the roomba knows it and its dirtiness
+        """
+        type_of_cell = {
+            'unkwon_dirty': [],
+            'unkwon': [],
+            'known_dirty': [],
+            'known': []
+        }
+
+        for cell in disp_cells:
+            dirty = any(
+    isinstance(obj, FloorCell) and obj.state == "Dirty"
+    for obj in cell.agents
+)
+
+            unknown = (cell not in self.visited_cells and cell not in self.visited_cells_sharing)
+
+            # Condiciones para dar prioridad
+            if dirty and unknown:
+                type_of_cell['unkwon_dirty'].append(cell)
+            elif not dirty and unknown:
+                type_of_cell['unkwon'].append(cell)
+            elif dirty and not unknown:
+                type_of_cell['known_dirty'].append(cell)
+            else:
+                type_of_cell['known'].append(cell)
+            
+        for t in ['unkwon_dirty', 'unkwon', 'known_dirty', 'known']:
+            if type_of_cell[t]:
+                return type_of_cell[t]
+        
+        return disp_cells
+    
+    def communicate(self):
+        """
+        Shares information about charging cells and visited cells
+        with neighboring RoombaAgents in the same cell.
+        """
+        roombas_neighbors = [
+            obj for obj in self.cell.agents
+            if isinstance(obj, RoombaAgent) and obj is not self
+        ]
+
+        for roomba in roombas_neighbors:
+
+            # Compartir celdas de carga 
+            # Roomba al vecino
+            for charge_cell in self.charging_stations:
+                if charge_cell not in roomba.charging_stations:
+                    roomba.charging_stations.append(charge_cell)
+            # Vecino a mi roomba
+            for charge_cell in roomba.charging_stations:
+                if charge_cell not in self.charging_stations:
+                    self.charging_stations.append(charge_cell)
+            # Compartir celdas visitadas
+            # Roomba al vecino
+            roomba.visited_cells_sharing.update(self.visited_cells)
+            # Vecino a mi roomba
+            self.visited_cells_sharing.update(roomba.visited_cells)
+
+    def charge(self):
+        """
+        While on a charger, increase battery.
+        """
+        floor = self.get_floor_here()
+        if floor is None:
+            self.state = "returning"
+            return
+        #Buscar estación
+        if floor.state == "Charger":
+            self.battery = min(self.battery_max, self.battery + 5)
+            # Guardar estación
+            if self.cell not in self.charging_stations:
+                self.charging_stations.append(self.cell)
+            # Cuando la batería es mayor o igual a 50 volver a limpiar
+            if self.battery >= 50:
+                self.state = "cleaning"
+                self.way = None
+        else:
+            # Not really on a charger → try to go back
+            self.state = "returning"
+            self.way = None
+
+    def bfs_shortest_path(self):
+        """
+        Uses BFS to find the best path to the nearest charging station.
+        """
+        if not self.charging_stations:
+            return None
+
+        # Verificar si ya estoy en una estación
+        floor = self.get_floor_here()
+        if floor and floor.state == "Charger":
+            return []
+
+       # cola de doble extremo -> agregar al final y sacar del inicio para FIFO (First In, First Out)
+        # metes rutas nuevas al final y sacas la ruta más antigua al principio
+        # cola donde se guardan las rutas
+        cola_rutas = deque()
+        # conjunto de posiciones que ya fueron exploradas por el BFS ()
+        visited = set()
+        cola_rutas.append((self.cell, []))
+        visited.add(self.cell)
+
+        # Algoritmo BFS
+        while cola_rutas:
+            my_cell, way = cola_rutas.popleft()
+
+            # Checar si esta celda es una estación
+            floor_here = None
+            for obj in my_cell.agents:
+                if isinstance(obj, FloorCell):
+                    floor_here = obj
+                    break
+
+            if floor_here and floor_here.state == "Charger":
+                return way
+
+            # Explorar vecinos
+            for n in my_cell.neighborhood:
+                if n not in visited and not self.is_obstacle_cell(n):
+
+                    visited.add(n)
+                    new_way = way + [n]
+                    cola_rutas.append((n, new_way))
+
+        # Si no se encuentra camino
+        return None
+    
+    def move_way(self, way):
+        """
+        Move following the path created with BFS
+        """
+        if way and len(way) > 0:
+            new_cell = way[0]
+            self.cell = new_cell
+            self.moves += 1
+            self.consume_battery()  # Consumir batería al moverse
 
 
-class ObstacleAgent(FixedAgent):
-    """
-    Agente obstáculo. No realiza acciones.
-    """
-    def __init__(self, model, cell):
-        super().__init__(model)
-        self.cell = cell
+    def return_to_charger(self):
+        """
+        Return to the charger station
+        """
+        # Verificar si ya esta en una estación de carga y cambiar el estado
+        floor = self.get_floor_here()
+        if floor is not None and floor.state == "Charger":
+            self.state = "charging"
+            return
+        
+        # Calcular camino si no hay uno
+        if self.way is None:
+            safe_cells = self.cell.neighborhood.select(
+                lambda c: not self.is_obstacle_cell(c)
+            )
+            if safe_cells:
+                self.cell = self.random.choice(safe_cells)
+                self.moves += 1
+                #self.consume_battery()
+            return
+        
+        # Seguir el camino BFS paso a paso
+        if self.way and len(self.way) > 0:
+            self.move_way(self.way)
+            # Eliminar la celda que ya recorrió
+            self.way = self.way[1:]
+            # Verificar si ya llegó al cargador
+            floor = self.get_floor_here()
+            if floor is not None and floor.state == "Charger":
+                self.state = "charging"
+
 
     def step(self):
-        pass
+        # Si está muerto, no hace nada
+        if self.state == "dead":
+            return
+
+        # Si batería baja y NO está cargando -> regresar
+        if self.battery <= 20 and self.state not in ("returning", "charging"):
+            self.state = "returning"
+            self.way = None  # reset camino
+
+        # 1. ESTADO: CHARGING
+        if self.state == "charging":
+            self.charge()  
+            return         
+
+        # 2. ESTADO: RETURNING
+        if self.state == "returning":
+            self.return_to_charger()
+            self.consume_battery()
+            return
+
+        # 3. ESTADO: CLEANING
+        if self.state == "cleaning":
+            floor = self.get_floor_here()
+            if floor and floor.state == "Dirty":
+                self.clean()
+            else:
+                # No hay suciedad -> explorar
+                self.move()
+            return
+
+        # 4. ESTADO: COMUNICATING
+        if self.state == "comunicating":
+            self.communicate()
+            # Después de comunicar, vuelve a limpiar o explorar
+            self.state = "cleaning"
+            self.consume_battery()
+            return
+
+        # 5. ESTADO: MOVING (por defecto)
+        self.move()  # movimiento normal con consumo de batería
+        # Checar muerte
+        if self.battery <= 0:
+            self.state = "dead"
