@@ -11,7 +11,7 @@ class RoombaModel(Model):
     Cleaning environment for one or multiple Roombas
     """
 
-    # Para que ShowSteps de Solara no truene si alguna vez ve la clase
+   
     steps: int = 0
 
     def __init__(
@@ -34,7 +34,6 @@ class RoombaModel(Model):
         # contador de pasos a nivel instancia
         self.steps = 0
 
-        # Grid de discrete_space (OJO: pasamos self.random)
         self.grid = OrthogonalMooreGrid(
             (width, height),
             torus=False,
@@ -43,7 +42,7 @@ class RoombaModel(Model):
         # alias para SolaraViz
         self.space = self.grid
 
-        # DataCollector ANTES de crear agentes
+
         self.datacollector = DataCollector(
             model_reporters={
                 "CleanPct": self.percent_clean,
@@ -74,8 +73,6 @@ class RoombaModel(Model):
                     # decidir suciedad
                     state = "Dirty" if self.random.random() < self.dirt_prob else "Clean"
 
-                # 🚨 AQUÍ EL CAMBIO IMPORTANTE:
-                # obtenemos la celda de discrete_space
                 cell = self.grid[x, y]
 
                 # FloorCell es FixedAgent; asignarle la celda lo coloca en el grid
@@ -111,7 +108,7 @@ class RoombaModel(Model):
         Bool -> devuelve True si la celda contiene un piso con estado Obstacle.
         pos es una tupla (x, y), pero aquí ya usamos la API nueva.
         """
-        cell = self.grid[pos]  # OrthogonalMooreGrid.__getitem__ devuelve un Cell
+        cell = self.grid[pos]  
 
         for agent in cell.agents:
             if isinstance(agent, FloorCell) and agent.state == "Obstacle":
