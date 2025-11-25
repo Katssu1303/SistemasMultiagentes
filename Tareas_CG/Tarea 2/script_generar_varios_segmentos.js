@@ -10,13 +10,13 @@ const numLados = parseInt(process.argv[2]) || 8;
 const alturaSegmento = parseFloat(process.argv[3]) || 2.0;
 
 // Lista de radios para cada nivel (de abajo hacia arriba)
-// Formato: [radio_base, radio_nivel1, radio_nivel2, ... radio_cima]
+// Formato: [radio_base, radio_nivel1, radio_nivel2, ..., radio_cima]
 let radios = [];
 if (process.argv.length > 4) {
   // Si se pasan radios como argumentos
   radios = process.argv.slice(4).map(parseFloat);
 } else {
-  // Valores por defecto
+  // Valores por defecto (como en la imagen)
   radios = [1.0, 0.6, 0.8, 1.2, 0.8, 0.4];
 }
 
@@ -42,30 +42,24 @@ function cruz(a, b) {
 
 // Generar vértices por niveles
 // Igual que antes -> primero se genera un vértice central, luego un anillo
-
-// Agregar vértice central de la base (índice 0)
-vertices.push([0, 0, 0]);
-
-// Para cada nivel de radio, generamos sus vértices
-// Cada nivel tiene:  1 vértice central y numLados vértices del perímetro
 for (let nivel = 0; nivel < radios.length; nivel++) {
   const radio = radios[nivel];
   const y = nivel * alturaSegmento;
 
-  // Vértice central del nivel
-  vertices.push([0, y, 0]);
-
-  // Calcular vértices del perímetro dependendiendo del número de lados
+  // Vértices del perímetro del nivel
   for (let i = 0; i < numLados; i++) {
-    // θ = i * (2π / numLados) -> usar i para el ángulo del vértice
     const angulo = (i / numLados) * Math.PI * 2;
-
-    // x = cos(θ)*r   z = sin(θ)*r
     const x = Math.cos(angulo) * radio;
     const z = Math.sin(angulo) * radio;
     vertices.push([x, y, z]);
   }
 }
+
+// Agregar centro de la base al final
+vertices.push([0, 0, 0]);
+
+// Agregar centro de la cima al final
+vertices.push([0, (radios.length - 1) * alturaSegmento, 0]);
 
 // Normal hacia abajo para la base
 normales.push([0, -1, 0]);
@@ -73,74 +67,73 @@ normales.push([0, -1, 0]);
 // Normal hacia arriba para la cima
 normales.push([0, 1, 0]);
 
-// Calcular vectores normales para cada cara -> par de lado
-// Cada segmento tiene numLados caras laterales -> 1 normal por cara
-
+// Calcular normales para cada segmento lateral
 for (let seg = 0; seg < radios.length - 1; seg++) {
-  // Índices base del nivel actual y siguiente
-  const nivelActual = 1 + seg * (numLados + 1);
-  const nivelSiguiente = 1 + (seg + 1) * (numLados + 1);
-
   // Para cada lado del segmento
   for (let i = 0; i < numLados; i++) {
     // v0 = punto en el anillo inferior del segmento
     // v1 = punto en el anillo superior del segmento
     // v2 = siguiente punto en el nivel inferior (para cerrar el polígono)
-    const v0_idx = nivelActual + 1 + i;
-    const v1_idx = nivelSiguiente + 1 + i;
-    const v2_idx = nivelActual + 1 + ((i + 1) % numLados);
+    const v0_idx = seg * numLados + i;
+    const v1_idx = (seg + 1) * numLados + i;
+    const v2_idx = seg * numLados + ((i + 1) % numLados);
 
     const v0 = vertices[v0_idx];
     const v1 = vertices[v1_idx];
     const v2 = vertices[v2_idx];
 
-    // Normal de la cara lateral: cruz(borde_vertical, borde_lateral)
     const borde_vertical = restar(v1, v0); // vector que sube verticalmente
     const borde_lateral = restar(v2, v0); // vector que va hacia el siguiente vértice de la base
     const n = normalizar(cruz(borde_vertical, borde_lateral));
 
-    // misma normal para los 4 vértices del cuadrado lateral -> ccada lado tiene dos vértices: vértice base - vértice cima
     normales.push(n);
   }
 }
 
-// Generar cara de la base (triángulos desde el centro hacia los vértices)
-const centroBase = 1; // índice en obj
-const primerNivelBase = 2; // primer vértice del anillo inferior
+// Índices para los centros (están al final del array de vértices)
+const centroBaseIdx = vertices.length - 1; // penúltimo vértice
+const centroCimaIdx = vertices.length; // último vértice
 
+// Generar cara de la base (triángulos desde el centro hacia los vértices)
 for (let i = 0; i < numLados; i++) {
-  const v1 = primerNivelBase + i;
-  const v2 = primerNivelBase + ((i + 1) % numLados);
-  faces.push([centroBase, v2, v1, 1]); // normal 1 - [0,-1,0]
+  const v1 = i + 1; // +1 para índice obj
+  const v2 = ((i + 1) % numLados) + 1;
+
+  // Triángulo apuntando hacia abajo (winding order invertido)
+  faces.push([centroBaseIdx, v2, v1, 1]);
 }
 
 // Generar cara de la cima (triángulos desde el centro hacia los vértices)
 const ultimoNivel = radios.length - 1;
-const centroCima = 1 + ultimoNivel * (numLados + 1) + 1;
-const primerNivelCima = centroCima + 1;
+const offsetCima = ultimoNivel * numLados;
 
 for (let i = 0; i < numLados; i++) {
-  const v1 = primerNivelCima + i;
-  const v2 = primerNivelCima + ((i + 1) % numLados);
-  faces.push([centroCima, v1, v2, 2]); // normal 2 - [0,1,0]
+  const v1 = offsetCima + i + 1; // +1 para índice OBJ
+  const v2 = offsetCima + ((i + 1) % numLados) + 1;
+
+  // Triángulo apuntando hacia arriba
+  faces.push([centroCimaIdx, v1, v2, 2]);
 }
 
-// Generar caras laterales (triángulos) -> Dos tríangulos para formar cada lado
-// (v0, v2, v1)  y  (v1, v2, v3)
-
+// Generar caras laterales para cada segmento
 for (let seg = 0; seg < radios.length - 1; seg++) {
-  const nivelActual = 1 + seg * (numLados + 1);
-  const nivelSiguiente = 1 + (seg + 1) * (numLados + 1);
+  const offsetActual = seg * numLados;
+  const offsetSiguiente = (seg + 1) * numLados;
 
   for (let i = 0; i < numLados; i++) {
-    const v0 = nivelActual + 1 + i + 1;
-    const v1 = nivelSiguiente + 1 + i + 1;
-    const v2 = nivelActual + 1 + ((i + 1) % numLados) + 1;
-    const v3 = nivelSiguiente + 1 + ((i + 1) % numLados) + 1;
+    // Vértices del cuadrilátero (dividido en 2 triángulos)
+    const v0 = offsetActual + i + 1;
+    const v1 = offsetSiguiente + i + 1;
+    const v2 = offsetActual + ((i + 1) % numLados) + 1;
+    const v3 = offsetSiguiente + ((i + 1) % numLados) + 1;
 
+    // Índice de la normal para este lado en este segmento
     const normalIdx = 3 + seg * numLados + i;
 
+    // Triángulo 1: v0, v2, v1
     faces.push([v0, v2, v1, normalIdx]);
+
+    // Triángulo 2: v1, v2, v3
     faces.push([v1, v2, v3, normalIdx]);
   }
 }
@@ -153,7 +146,6 @@ for (let seg = 0; seg < radios.length - 1; seg++) {
 // cantidad de caras - f
 // f num_vertice//num_diagonal en el orden que aparecen (eje: 5//1 1//1 3//1)
 // aumentar num_diagonal en uno (eje: f 5//1 1//1 3//1 f 4//2 2//2 6//2 f 5//3 3//3 4//3)
-
 let out = "";
 
 // Header
